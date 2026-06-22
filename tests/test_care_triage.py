@@ -1,56 +1,35 @@
-from care_triage import Ticket, KnowledgeBase, CareTriage, load_knowledge_base
+from care_triage import CareTriage, Ticket, Agent, MarketplaceAPI
 
-def test_suggest_root_cause():
-    knowledge_base_json = '''
-    {
-        "headache": ["Migraine", "Tension"],
-        "fever": ["Infection", "Viral"]
-    }
-    '''
-    knowledge_base = load_knowledge_base(knowledge_base_json)
-    care_triage = CareTriage(knowledge_base)
+def test_suggest_agent():
+    marketplace_api = MarketplaceAPI()
+    care_triage = CareTriage(marketplace_api)
 
-    ticket = Ticket(1, "Patient has a headache", ["headache"])
-    suggestion = care_triage.suggest_root_cause(ticket)
-    assert suggestion == "Migraine"
+    ticket = Ticket(score=80, metadata={'skill_tags': ['tag1', 'tag3']})
+    agent = care_triage.suggest_agent(ticket)
+    assert agent is not None
+    assert agent.skill_tags == ['tag1', 'tag2']
 
-def test_generate_suggestions():
-    knowledge_base_json = '''
-    {
-        "headache": ["Migraine", "Tension"],
-        "fever": ["Infection", "Viral"]
-    }
-    '''
-    knowledge_base = load_knowledge_base(knowledge_base_json)
-    care_triage = CareTriage(knowledge_base)
+def test_suggest_agent_no_available_agents():
+    marketplace_api = MarketplaceAPI()
+    care_triage = CareTriage(marketplace_api)
 
-    ticket1 = Ticket(1, "Patient has a headache", ["headache"])
-    ticket2 = Ticket(2, "Patient has a fever", ["fever"])
-    tickets = [ticket1, ticket2]
+    ticket = Ticket(score=80, metadata={'skill_tags': ['tag5', 'tag6']})
+    agent = care_triage.suggest_agent(ticket)
+    assert agent is None
 
-    suggestions = care_triage.generate_suggestions(tickets)
-    assert suggestions == {1: "Migraine", 2: "Infection"}
+def test_assign_agent():
+    marketplace_api = MarketplaceAPI()
+    care_triage = CareTriage(marketplace_api)
 
-def test_load_knowledge_base():
-    knowledge_base_json = '''
-    {
-        "headache": ["Migraine", "Tension"],
-        "fever": ["Infection", "Viral"]
-    }
-    '''
-    knowledge_base = load_knowledge_base(knowledge_base_json)
-    assert knowledge_base.root_causes == {"headache": ["Migraine", "Tension"], "fever": ["Infection", "Viral"]}
+    ticket = Ticket(score=80, metadata={'skill_tags': ['tag1', 'tag3']})
+    agent = Agent(skill_tags=['tag1', 'tag2'])
+    care_triage.assign_agent(ticket, agent)
+    assert ticket.metadata['assigned_agent'] == ['tag1', 'tag2']
 
-def test_suggest_root_cause_unknown():
-    knowledge_base_json = '''
-    {
-        "headache": ["Migraine", "Tension"],
-        "fever": ["Infection", "Viral"]
-    }
-    '''
-    knowledge_base = load_knowledge_base(knowledge_base_json)
-    care_triage = CareTriage(knowledge_base)
+def test_notify_ops_manager():
+    marketplace_api = MarketplaceAPI()
+    care_triage = CareTriage(marketplace_api)
 
-    ticket = Ticket(1, "Patient has a cough", ["cough"])
-    suggestion = care_triage.suggest_root_cause(ticket)
-    assert suggestion == "Unknown"
+    ticket = Ticket(score=80, metadata={'skill_tags': ['tag5', 'tag6']})
+    care_triage.notify_ops_manager(ticket)
+    # No assertion, just verify that the method runs without errors

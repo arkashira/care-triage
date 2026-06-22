@@ -1,55 +1,53 @@
 import json
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Optional
 
 @dataclass
 class Ticket:
-    id: int
-    description: str
-    symptoms: List[str]
+    score: int
+    metadata: dict
 
 @dataclass
-class KnowledgeBase:
-    root_causes: Dict[str, List[str]]
+class Agent:
+    skill_tags: List[str]
 
 class CareTriage:
-    def __init__(self, knowledge_base: KnowledgeBase):
-        self.knowledge_base = knowledge_base
+    def __init__(self, marketplace_api):
+        self.marketplace_api = marketplace_api
 
-    def suggest_root_cause(self, ticket: Ticket) -> str:
-        for symptom in ticket.symptoms:
-            if symptom in self.knowledge_base.root_causes:
-                return self.knowledge_base.root_causes[symptom][0]
-        return "Unknown"
+    def suggest_agent(self, ticket: Ticket) -> Optional[Agent]:
+        if ticket.score > 70:
+            available_agents = self.marketplace_api.query_agents(ticket.metadata.get('skill_tags', []))
+            if available_agents:
+                return available_agents[0]
+        return None
 
-    def generate_suggestions(self, tickets: List[Ticket]) -> Dict[int, str]:
-        suggestions = {}
-        for ticket in tickets:
-            suggestion = self.suggest_root_cause(ticket)
-            suggestions[ticket.id] = suggestion
-        return suggestions
+    def assign_agent(self, ticket: Ticket, agent: Agent) -> None:
+        ticket.metadata['assigned_agent'] = agent.skill_tags
+        print(f"Assigned agent with skill tags {agent.skill_tags} to ticket")
 
-def load_knowledge_base(json_data: str) -> KnowledgeBase:
-    data = json.loads(json_data)
-    root_causes = {symptom: causes for symptom, causes in data.items()}
-    return KnowledgeBase(root_causes)
+    def notify_ops_manager(self, ticket: Ticket) -> None:
+        print(f"No agents available for ticket with score {ticket.score}")
+
+class MarketplaceAPI:
+    def query_agents(self, skill_tags: List[str]) -> List[Agent]:
+        # Simulate a query to the marketplace API
+        available_agents = [
+            Agent(skill_tags=['tag1', 'tag2']),
+            Agent(skill_tags=['tag3', 'tag4'])
+        ]
+        return [agent for agent in available_agents if any(tag in skill_tags for tag in agent.skill_tags)]
 
 def main():
-    knowledge_base_json = '''
-    {
-        "headache": ["Migraine", "Tension"],
-        "fever": ["Infection", "Viral"]
-    }
-    '''
-    knowledge_base = load_knowledge_base(knowledge_base_json)
-    care_triage = CareTriage(knowledge_base)
+    marketplace_api = MarketplaceAPI()
+    care_triage = CareTriage(marketplace_api)
 
-    ticket1 = Ticket(1, "Patient has a headache", ["headache"])
-    ticket2 = Ticket(2, "Patient has a fever", ["fever"])
-    tickets = [ticket1, ticket2]
+    ticket = Ticket(score=80, metadata={'skill_tags': ['tag1', 'tag3']})
+    agent = care_triage.suggest_agent(ticket)
+    if agent:
+        care_triage.assign_agent(ticket, agent)
+    else:
+        care_triage.notify_ops_manager(ticket)
 
-    suggestions = care_triage.generate_suggestions(tickets)
-    print(suggestions)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
