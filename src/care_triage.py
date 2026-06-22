@@ -1,50 +1,55 @@
 import json
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import List, Dict
 
 @dataclass
 class Ticket:
     id: int
-    text: str
-    category: str = None
-    team_id: int = None
+    description: str
+    symptoms: List[str]
+
+@dataclass
+class KnowledgeBase:
+    root_causes: Dict[str, List[str]]
 
 class CareTriage:
-    def __init__(self, categories: List[str], routing_rules: Dict[str, int]):
-        self.categories = categories
-        self.routing_rules = routing_rules
-        self.model = self._train_model()
+    def __init__(self, knowledge_base: KnowledgeBase):
+        self.knowledge_base = knowledge_base
 
-    def _train_model(self):
-        # Simple mock model for demonstration purposes
-        def model(text: str) -> str:
-            if "hardware" in text:
-                return "Hardware"
-            elif "software" in text:
-                return "Software"
-            else:
-                return "Unknown"
-        return model
+    def suggest_root_cause(self, ticket: Ticket) -> str:
+        for symptom in ticket.symptoms:
+            if symptom in self.knowledge_base.root_causes:
+                return self.knowledge_base.root_causes[symptom][0]
+        return "Unknown"
 
-    def classify(self, ticket: Ticket) -> Ticket:
-        category = self.model(ticket.text)
-        if category not in self.categories:
-            category = "Unknown"
-        ticket.category = category
-        return ticket
+    def generate_suggestions(self, tickets: List[Ticket]) -> Dict[int, str]:
+        suggestions = {}
+        for ticket in tickets:
+            suggestion = self.suggest_root_cause(ticket)
+            suggestions[ticket.id] = suggestion
+        return suggestions
 
-    def route(self, ticket: Ticket) -> Ticket:
-        team_id = self.routing_rules.get(ticket.category)
-        if team_id is not None:
-            ticket.team_id = team_id
-        return ticket
+def load_knowledge_base(json_data: str) -> KnowledgeBase:
+    data = json.loads(json_data)
+    root_causes = {symptom: causes for symptom, causes in data.items()}
+    return KnowledgeBase(root_causes)
 
-    def assign(self, ticket: Ticket) -> Ticket:
-        ticket = self.classify(ticket)
-        ticket = self.route(ticket)
-        return ticket
+def main():
+    knowledge_base_json = '''
+    {
+        "headache": ["Migraine", "Tension"],
+        "fever": ["Infection", "Viral"]
+    }
+    '''
+    knowledge_base = load_knowledge_base(knowledge_base_json)
+    care_triage = CareTriage(knowledge_base)
 
-    def validate(self, ticket: Ticket) -> bool:
-        if ticket.category is None or ticket.team_id is None:
-            return False
-        return True
+    ticket1 = Ticket(1, "Patient has a headache", ["headache"])
+    ticket2 = Ticket(2, "Patient has a fever", ["fever"])
+    tickets = [ticket1, ticket2]
+
+    suggestions = care_triage.generate_suggestions(tickets)
+    print(suggestions)
+
+if __name__ == "__main__":
+    main()
