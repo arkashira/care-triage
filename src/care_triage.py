@@ -1,53 +1,44 @@
 import json
 from dataclasses import dataclass
-from typing import List, Optional
+from argparse import ArgumentParser
 
 @dataclass
-class Ticket:
-    score: int
-    metadata: dict
+class CareTriageSystem:
+    instructions: str
+    guidance: str
 
-@dataclass
-class Agent:
-    skill_tags: List[str]
+    def provide_instructions(self):
+        return self.instructions
 
-class CareTriage:
-    def __init__(self, marketplace_api):
-        self.marketplace_api = marketplace_api
+    def provide_guidance(self):
+        return self.guidance
 
-    def suggest_agent(self, ticket: Ticket) -> Optional[Agent]:
-        if ticket.score > 70:
-            available_agents = self.marketplace_api.query_agents(ticket.metadata.get('skill_tags', []))
-            if available_agents:
-                return available_agents[0]
-        return None
+    def validate_input(self, input_data):
+        if not isinstance(input_data, dict):
+            raise ValueError("Input must be a dictionary")
+        if "user_input" not in input_data:
+            raise ValueError("Input must contain 'user_input' key")
+        return input_data["user_input"]
 
-    def assign_agent(self, ticket: Ticket, agent: Agent) -> None:
-        ticket.metadata['assigned_agent'] = agent.skill_tags
-        print(f"Assigned agent with skill tags {agent.skill_tags} to ticket")
-
-    def notify_ops_manager(self, ticket: Ticket) -> None:
-        print(f"No agents available for ticket with score {ticket.score}")
-
-class MarketplaceAPI:
-    def query_agents(self, skill_tags: List[str]) -> List[Agent]:
-        # Simulate a query to the marketplace API
-        available_agents = [
-            Agent(skill_tags=['tag1', 'tag2']),
-            Agent(skill_tags=['tag3', 'tag4'])
-        ]
-        return [agent for agent in available_agents if any(tag in skill_tags for tag in agent.skill_tags)]
+    def process_input(self, input_data):
+        try:
+            user_input = self.validate_input(input_data)
+            return f"Processing input: {user_input}"
+        except ValueError as e:
+            return f"Error: {str(e)}"
 
 def main():
-    marketplace_api = MarketplaceAPI()
-    care_triage = CareTriage(marketplace_api)
+    parser = ArgumentParser(description="Care Triage System")
+    parser.add_argument("--instructions", help="Instructions for the system")
+    parser.add_argument("--guidance", help="Guidance for the system")
+    args = parser.parse_args()
 
-    ticket = Ticket(score=80, metadata={'skill_tags': ['tag1', 'tag3']})
-    agent = care_triage.suggest_agent(ticket)
-    if agent:
-        care_triage.assign_agent(ticket, agent)
-    else:
-        care_triage.notify_ops_manager(ticket)
+    system = CareTriageSystem(args.instructions, args.guidance)
+    print(system.provide_instructions())
+    print(system.provide_guidance())
 
-if __name__ == '__main__':
+    input_data = {"user_input": "example input"}
+    print(system.process_input(input_data))
+
+if __name__ == "__main__":
     main()
